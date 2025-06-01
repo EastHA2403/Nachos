@@ -33,7 +33,7 @@ public class PriorityScheduler extends Scheduler {
      */
     public PriorityScheduler() {
     }
-    
+
     /**
      * Allocate a new priority thread queue.
      *
@@ -97,7 +97,41 @@ public class PriorityScheduler extends Scheduler {
 	return true;
     }
 
-    /**
+	public static void selfTest() {
+		System.out.println("=== PriorityScheduler 테스트 시작 ===");
+
+		// 우선순위 스케줄러 생성
+		PriorityScheduler scheduler = new PriorityScheduler();
+		ThreadQueue queue = scheduler.newThreadQueue(true); // priority transfer 가능
+
+		// 테스트용 스레드 생성
+		KThread t1 = new KThread(() -> {
+			System.out.println("Thread A 실행");
+		}).setName("Thread A");
+
+		KThread t2 = new KThread(() -> {
+			System.out.println("Thread B 실행");
+		}).setName("Thread B");
+
+		// 우선순위 설정
+		scheduler.setPriority(t1, 2); // 낮은 우선순위
+		scheduler.setPriority(t2, 5); // 높은 우선순위
+
+		// 대기열 등록
+		boolean intStatus = Machine.interrupt().disable(); // 인터럽트 비활성화
+		queue.waitForAccess(t1);
+		queue.waitForAccess(t2);
+		Machine.interrupt().restore(intStatus); // 인터럽트 복원
+
+		// 실행
+		KThread next = queue.nextThread();
+		if (next != null) next.fork(); // 가장 높은 우선순위 스레드 실행
+
+		System.out.println("=== PriorityScheduler 테스트 종료 ===");
+	}
+
+
+	/**
      * The default priority for a new thread. Do not change this value.
      */
     public static final int priorityDefault = 1;

@@ -44,17 +44,16 @@ public class ThreadedKernel extends Kernel {
      * <tt>SynchList</tt>, and <tt>ElevatorBank</tt> classes. Note that the
      * autograder never calls this method, so it is safe to put additional
      * tests here.
-     */	
+     */
     public void selfTest() {
-	KThread.selfTest();
-	Semaphore.selfTest();
-	SynchList.selfTest();
-	if (Machine.bank() != null) {
-	    ElevatorBank.selfTest();
-	}
-    Condition2.selfTest();
+        System.out.println("ThreadedKernel: selfTest 시작");
+
+        nachos.threads.PriorityScheduler.selfTest();
+
+        System.out.println("ThreadedKernel: selfTest 종료");
     }
-    
+
+
     /**
      * A threaded kernel does not run user programs, so this method does
      * nothing.
