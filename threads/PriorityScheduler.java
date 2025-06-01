@@ -98,37 +98,63 @@ public class PriorityScheduler extends Scheduler {
     }
 
 	public static void selfTest() {
-		System.out.println("=== PriorityScheduler 테스트 시작 ===");
+		System.out.println("=== [PriorityScheduler 테스트 시작] ===");
 
-		// 우선순위 스케줄러 생성
 		PriorityScheduler scheduler = new PriorityScheduler();
-		ThreadQueue queue = scheduler.newThreadQueue(true); // priority transfer 가능
+		ThreadQueue queue = scheduler.newThreadQueue(false); // priority transfer 불필요
 
 		// 테스트용 스레드 생성
-		KThread t1 = new KThread(() -> {
-			System.out.println("Thread A 실행");
+		KThread t1 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("Thread A (priority 1) 실행");
+			}
 		}).setName("Thread A");
 
-		KThread t2 = new KThread(() -> {
-			System.out.println("Thread B 실행");
+		KThread t2 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("Thread B (priority 7) 실행");
+			}
 		}).setName("Thread B");
 
-		// 우선순위 설정
-		scheduler.setPriority(t1, 2); // 낮은 우선순위
-		scheduler.setPriority(t2, 5); // 높은 우선순위
+		KThread t3 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("Thread C (priority 4) 실행");
+			}
+		}).setName("Thread C");
 
-		// 대기열 등록
-		boolean intStatus = Machine.interrupt().disable(); // 인터럽트 비활성화
+		boolean intStatus = Machine.interrupt().disable();
+
+		// 우선순위 설정
+		scheduler.setPriority(t1, 1);
+		scheduler.setPriority(t2, 7);
+		scheduler.setPriority(t3, 4);
+
+		// 스레드들을 대기열에 등록
 		queue.waitForAccess(t1);
 		queue.waitForAccess(t2);
-		Machine.interrupt().restore(intStatus); // 인터럽트 복원
+		queue.waitForAccess(t3);
 
-		// 실행
+		// 가장 우선순위 높은 스레드부터 실행
 		KThread next = queue.nextThread();
-		if (next != null) next.fork(); // 가장 높은 우선순위 스레드 실행
+		if (next != null) next.fork();
 
-		System.out.println("=== PriorityScheduler 테스트 종료 ===");
+		next = queue.nextThread();
+		if (next != null) next.fork();
+
+		next = queue.nextThread();
+		if (next != null) next.fork();
+
+		Machine.interrupt().restore(intStatus);
+
+		// join으로 스레드 종료 대기
+		t1.join();
+		t2.join();
+		t3.join();
+
+		System.out.println("=== [PriorityScheduler 테스트 종료] ===");
 	}
+
+
 
 
 	/**
