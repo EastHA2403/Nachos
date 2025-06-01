@@ -46,11 +46,7 @@ public class ThreadedKernel extends Kernel {
      * tests here.
      */
     public void selfTest() {
-        System.out.println("ThreadedKernel: selfTest 시작");
-
         nachos.threads.PriorityScheduler.selfTest();
-
-        System.out.println("ThreadedKernel: selfTest 종료");
     }
 
 
