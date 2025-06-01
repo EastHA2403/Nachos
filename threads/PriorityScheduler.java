@@ -2,6 +2,7 @@ package nachos.threads;
 
 import nachos.machine.*;
 
+import java.util.LinkedList;
 import java.util.TreeSet;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -129,6 +130,7 @@ public class PriorityScheduler extends Scheduler {
 	PriorityQueue(boolean transferPriority) {
 	    this.transferPriority = transferPriority;
 	}
+	private LinkedList<ThreadState> waitQueue = new LinkedList<>();
 
 	public void waitForAccess(KThread thread) {
 	    Lib.assertTrue(Machine.interrupt().disabled());
@@ -141,9 +143,13 @@ public class PriorityScheduler extends Scheduler {
 	}
 
 	public KThread nextThread() {
-	    Lib.assertTrue(Machine.interrupt().disabled());
-	    // implement me
-	    return null;
+		ThreadState next = pickNextThread();
+		if (next != null) {
+			waitQueue.remove(next); // 큐에서 제거
+			next.acquire(this); // 자원 획득 처리
+			return next.thread; // 스레드 반환
+		}
+		return null; // 큐가 비어있으면 null
 	}
 
 	/**
@@ -154,8 +160,14 @@ public class PriorityScheduler extends Scheduler {
 	 *		return.
 	 */
 	protected ThreadState pickNextThread() {
-	    // implement me
-	    return null;
+		ThreadState best = null;
+		for (ThreadState ts : waitQueue) {
+			if (best == null || ts.getEffectivePriority() > best.getEffectivePriority() ||
+					(ts.getEffectivePriority() == best.getEffectivePriority() && ts.waitTime < best.waitTime)) {
+				best = ts;
+			}
+		}
+		return best;
 	}
 	
 	public void print() {
@@ -178,7 +190,8 @@ public class PriorityScheduler extends Scheduler {
      * @see	nachos.threads.KThread#schedulingState
      */
     protected class ThreadState {
-	/**
+		protected long waitTime;
+		/**
 	 * Allocate a new <tt>ThreadState</tt> object and associate it with the
 	 * specified thread.
 	 *
@@ -236,7 +249,8 @@ public class PriorityScheduler extends Scheduler {
 	 * @see	nachos.threads.ThreadQueue#waitForAccess
 	 */
 	public void waitForAccess(PriorityQueue waitQueue) {
-	    // implement me
+		waitTime = Machine.timer().getTime();
+		waitQueue.waitQueue.add(this);
 	}
 
 	/**
