@@ -122,37 +122,53 @@ public class PriorityScheduler extends Scheduler {
 			}
 		}).setName("Thread C");
 
+		KThread t4 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("Thread D (priority 5) 실행");
+			}
+		}).setName("Thread D");
+
+		KThread t5 = new KThread(new Runnable() {
+			public void run() {
+				System.out.println("Thread E (priority 5) 실행");
+			}
+		}).setName("Thread E");
+
+
 		boolean intStatus = Machine.interrupt().disable();
 
 		// 우선순위 설정
 		scheduler.setPriority(t1, 1);
 		scheduler.setPriority(t2, 7);
 		scheduler.setPriority(t3, 4);
+		scheduler.setPriority(t4, 5);
+		scheduler.setPriority(t5, 5);
 
-		// 스레드들을 대기열에 등록
-		queue.waitForAccess(t1);
-		queue.waitForAccess(t2);
-		queue.waitForAccess(t3);
-
-		// 가장 우선순위 높은 스레드부터 실행
-		KThread next = queue.nextThread();
-		if (next != null) next.fork();
-
-		next = queue.nextThread();
-		if (next != null) next.fork();
-
-		next = queue.nextThread();
-		if (next != null) next.fork();
+		// 대기열 등록 (등록 순서가 기다린 시간에 영향을 줌)
+		queue.waitForAccess(t1); // 낮은 우선순위
+		queue.waitForAccess(t4); // 5 - 먼저 대기
+		queue.waitForAccess(t2); // 가장 높은 우선순위
+		queue.waitForAccess(t5); // 5 - 나중 대기
+		queue.waitForAccess(t3); // 중간 우선순위
 
 		Machine.interrupt().restore(intStatus);
 
-		// join으로 스레드 종료 대기
+		// 우선순위대로 실행
+		KThread next;
+		while ((next = queue.nextThread()) != null) {
+			next.fork();
+		}
+
+		// 모든 스레드가 종료될 때까지 대기
 		t1.join();
 		t2.join();
 		t3.join();
+		t4.join();
+		t5.join();
 
 		System.out.println("=== [PriorityScheduler 테스트 종료] ===");
 	}
+
 
 
 
