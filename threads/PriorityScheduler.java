@@ -98,76 +98,77 @@ public class PriorityScheduler extends Scheduler {
     }
 
 	public static void selfTest() {
-		System.out.println("=== [PriorityScheduler 테스트 시작] ===");
+		System.out.println("== 우선순위 스케줄러 테스트 ==");
 
-		PriorityScheduler scheduler = new PriorityScheduler();
-		ThreadQueue queue = scheduler.newThreadQueue(false); // priority transfer 불필요
+		PriorityScheduler ps = new PriorityScheduler();
+		ThreadQueue tq = ps.newThreadQueue(false); // priority transfer 안함
 
-		// 테스트용 스레드 생성
-		KThread t1 = new KThread(new Runnable() {
+		// 테스트할 스레드들 만들기
+		KThread thread1 = new KThread(new Runnable() {
 			public void run() {
-				System.out.println("Thread A (priority 1) 실행");
+				System.out.println("스레드1 (우선순위=1) 실행됨");
 			}
-		}).setName("Thread A");
+		}).setName("thread1");
 
-		KThread t2 = new KThread(new Runnable() {
+		KThread thread2 = new KThread(new Runnable() {
 			public void run() {
-				System.out.println("Thread B (priority 7) 실행");
+				System.out.println("스레드2 (우선순위=7) 실행됨");
 			}
-		}).setName("Thread B");
+		}).setName("thread2");
 
-		KThread t3 = new KThread(new Runnable() {
+		KThread thread3 = new KThread(new Runnable() {
 			public void run() {
-				System.out.println("Thread C (priority 4) 실행");
+				System.out.println("스레드3 (우선순위=4) 실행됨");
 			}
-		}).setName("Thread C");
+		}).setName("thread3");
 
-		KThread t4 = new KThread(new Runnable() {
+		KThread thread4 = new KThread(new Runnable() {
 			public void run() {
-				System.out.println("Thread D (priority 5) 실행");
+				System.out.println("스레드4 (우선순위=5) 실행됨");
 			}
-		}).setName("Thread D");
+		}).setName("thread4");
 
-		KThread t5 = new KThread(new Runnable() {
+		KThread thread5 = new KThread(new Runnable() {
 			public void run() {
-				System.out.println("Thread E (priority 5) 실행");
+				System.out.println("스레드5 (우선순위=5) 실행됨");
 			}
-		}).setName("Thread E");
+		}).setName("thread5");
 
 
-		boolean intStatus = Machine.interrupt().disable();
+		boolean status = Machine.interrupt().disable();
 
-		// 우선순위 설정
-		scheduler.setPriority(t1, 1);
-		scheduler.setPriority(t2, 7);
-		scheduler.setPriority(t3, 4);
-		scheduler.setPriority(t4, 5);
-		scheduler.setPriority(t5, 5);
+		// 우선순위 설정해주기
+		ps.setPriority(thread1, 1);
+		ps.setPriority(thread2, 7);
+		ps.setPriority(thread3, 4);
+		ps.setPriority(thread4, 5);
+		ps.setPriority(thread5, 5);
 
-		// 대기열 등록 (등록 순서가 기다린 시간에 영향을 줌)
-		queue.waitForAccess(t1); // 낮은 우선순위
-		queue.waitForAccess(t4); // 5 - 먼저 대기
-		queue.waitForAccess(t2); // 가장 높은 우선순위
-		queue.waitForAccess(t5); // 5 - 나중 대기
-		queue.waitForAccess(t3); // 중간 우선순위
+		// 큐에 넣기 (순서 중요함)
+		tq.waitForAccess(thread1); // 우선순위 낮음
+		tq.waitForAccess(thread4); // 5번 먼저
+		tq.waitForAccess(thread2); // 우선순위 제일 높음
+		tq.waitForAccess(thread5); // 5번 나중에
+		tq.waitForAccess(thread3); // 중간
 
-		Machine.interrupt().restore(intStatus);
+		Machine.interrupt().restore(status);
 
-		// 우선순위대로 실행
-		KThread next;
-		while ((next = queue.nextThread()) != null) {
-			next.fork();
+		// 우선순위 순서대로 실행하기
+		KThread t;
+		while ((t = tq.nextThread()) != null) {
+			t.fork();
 		}
 
-		// 모든 스레드가 종료될 때까지 대기
-		t1.join();
-		t2.join();
-		t3.join();
-		t4.join();
-		t5.join();
+		// 끝날때까지 기다리기
+		thread1.join();
+		thread2.join();
+		thread3.join();
+		thread4.join();
+		thread5.join();
 
-		System.out.println("=== [PriorityScheduler 테스트 종료] ===");
+		System.out.println("== 테스트 끝 ==");
 	}
+
 
 
 
@@ -218,17 +219,18 @@ public class PriorityScheduler extends Scheduler {
 	    getThreadState(thread).acquire(this);
 	}
 
-	public KThread nextThread() {
-		ThreadState next = pickNextThread();
-		if (next != null) {
-			waitQueue.remove(next); // 큐에서 제거
-			next.acquire(this); // 자원 획득 처리
-			return next.thread; // 스레드 반환
+		public KThread nextThread() {
+			ThreadState next = pickNextThread(); // 최적 스레드 선택
+			if (next != null) {
+				waitQueue.remove(next); // 대기 큐에서 선택된 스레드 제거
+				next.acquire(this); // 해당 스레드가 자원을 소유
+				return next.thread; // 스케줄러가 실행할 실제 객체 반환
+			}
+			return null; // 큐가 비어있으면 null
 		}
-		return null; // 큐가 비어있으면 null
-	}
 
-	/**
+
+		/**
 	 * Return the next thread that <tt>nextThread()</tt> would return,
 	 * without modifying the state of this queue.
 	 *
@@ -238,15 +240,16 @@ public class PriorityScheduler extends Scheduler {
 	protected ThreadState pickNextThread() {
 		ThreadState best = null;
 		for (ThreadState ts : waitQueue) {
-			if (best == null || ts.getEffectivePriority() > best.getEffectivePriority() ||
-					(ts.getEffectivePriority() == best.getEffectivePriority() && ts.waitTime < best.waitTime)) {
+			if (best == null || ts.getEffectivePriority() > best.getEffectivePriority() || (ts.getEffectivePriority() == best.getEffectivePriority() && ts.waitTime < best.waitTime)) {
+				// 스레드들 간 우선순위 결정
 				best = ts;
 			}
 		}
-		return best;
+		return best; // 선택된 스레드 반환
 	}
-	
-	public void print() {
+
+
+		public void print() {
 	    Lib.assertTrue(Machine.interrupt().disabled());
 	    // implement me (if you want)
 	}
